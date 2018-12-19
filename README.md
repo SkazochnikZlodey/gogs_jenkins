@@ -1,1 +1,3 @@
-# gogs_jenkins
+
+Test project for Jenkins and GOGS
+
