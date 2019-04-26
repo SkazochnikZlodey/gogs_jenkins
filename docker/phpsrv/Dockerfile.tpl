@@ -1,7 +1,7 @@
-FROM reg.srv.local/main/php72:latest AS composer
+FROM reg.srv.local/code_company/php72:latest AS composer
 #FROM tpl/php72:latest AS composer
 
-MAINTAINER main
+MAINTAINER code_company
 
 ARG project_dir="./code/"
 

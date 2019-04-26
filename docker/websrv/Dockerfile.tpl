@@ -1,4 +1,4 @@
-FROM reg.srv.local/main/ubuntu16 AS npm
+FROM reg.srv.local/code_company/ubuntu16 AS npm
 
 ARG project_dir="./code/"
 
@@ -39,9 +39,9 @@ RUN if [ -f /source/wwwroot/package.json ] \
 FROM reg.srv.local/codinsula/nginx-www:latest
 #FROM tpl/www:latest
 
-MAINTAINER codinsula
+MAINTAINER code_company
 
-EXPOSE 80
+EXPOSE 1180
 # copy source code into container
 # ADD ./code/wwwroot /usr/share/nginx/html
 #COPY --from=npm /source/wwwroot /source/wwwroot

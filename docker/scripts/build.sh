@@ -77,6 +77,7 @@ case ${option} in
       echo "Using $template_name as target"
       ;;
    build)
+   # cd $(pwd)/nginx
       echo "current dir:"
       pwd
       sourceservername="${4,,}"
@@ -95,8 +96,12 @@ case ${option} in
 #      docker system prune -a -f
       echo " build --no-cache -f "${1}${3}" -t temp_"${6,,}"_"${7,,}" ."
       docker build --no-cache -f "${1}${3}" -t temp_"${6,,}"_"${7,,}" .
+#      echo "tag temp_"${6,,}"_"${7,,}":latest" ${4}"/"${5}"/"${6,,}"_"${7,,}"
       echo "Tagging... . "$string
        docker tag $string
+#      docker tag temp_"${6,,}"_"${7,,}"":latest" ${4}"/"${5}"/"${6,,}"_"${7,,}"
+#      docker tag ${"temp_"${6,,}"_"${7,,}":latest " ${4}"/"${5}"/"${6,,}"_"${7,,}":latest"}
+#      echo "push "${4}"/"${5}"/"${6,,}"_"${7,,}"
       echo "Pushing... ."
       docker push "${4}"/"${5}"/"${6,,}"_"${7,,}"
       echo " "
@@ -112,6 +117,24 @@ case ${option} in
       docker stack deploy -c "${foldername}""${3}" "${5}"
       exit 0
       ;;
+   rdeploy)
+     echo "Docker stack deployment:"
+     echo "Folder name :" ${foldername}
+     echo "File name   :" ${3}
+     echo "Project name:" ${4}
+     echo "Site name   :" ${5}
+     echo "Remote user :" ${6}
+     echo "Remote server" ${7}
+     echo "${foldername}""${3}" "${5}"
+     ssh -o "StrictHostKeyChecking=no" -t "${6}"@"${7}" mkdir -p /tmp/docker_"${5}"
+#     ssh -t "${6}"@"${7}" docker stack rm "${5}"
+     scp "${foldername}""${3}" "${6}"@"${7}":/tmp/docker_"${5}"
+     ssh -t "${6}"@"${7}" ls -la /tmp/docker_"${5}"
+     ssh -t "${6}"@"${7}" docker stack deploy -c  /tmp/docker_"${5}"/"${3}" "${5}"
+#     docker stack deploy -c "${foldername}""${3}" "${5}"
+     exit 0
+     ;;
+
     copy)
     echo "Docker contaner copy:"
     echo "Folder name         :" ${foldername}
@@ -120,6 +143,8 @@ case ${option} in
     echo "Project name        :" ${5}
     echo "Site name           :" ${6}
     echo "Folder name         :" ${7}
+##    echo "${foldername}""${3}" "${5}"
+##     docker stack deploy -c "${foldername}""${3}" "${5}"
    docker pull "${3}"/"${5}"/"${6}"_"${7}:latest"
    docker tag "${3}"/"${5}"/"${6}"_"${7}:latest" "${4}"/"${5}"/"${6}"_"${7}:latest"
    docker push "${4}"/"${5}"/"${6}"_"${7}:latest"
@@ -148,6 +173,8 @@ case ${option} in
       echo "variable  :" "${variable_name}"
       echo "parameter :" "${variable_value}"
       sed -i "s/${variable_name}/${variable_value}/g" "${template_name}"
+    #    cp -f $template_name".tmp" $template_name
+    #    rm -f $template_name".tmp"
       exit 0
       ;;
    add) variable_name=${5}
@@ -163,6 +190,8 @@ case ${option} in
       exit 1 # Command to come out of the program with status 1
       ;;
 esac
+# cd ..
+# cd scripts
 
 
 

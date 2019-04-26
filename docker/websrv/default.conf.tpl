@@ -6,8 +6,8 @@ upstream upstream_backend {
 
 
 server {
-    listen 80;
-    listen [::]:80;
+    listen 1180;
+    listen [::]:1180;
 
     index index.html;
 

@@ -7,6 +7,7 @@
 ###################################################################
 unset username                 # user name for regitry
 unset password                 # user password for regitry
+unset remoteuser               # user on remote server
 unset sourceservername         # source registry server
 unset targetservername         # target registry server
 unset projectname              # project name
@@ -25,11 +26,12 @@ unset delimiter
 unset delimiter2
 unset delimiter3
 unset retval
-
+unset tplpublicsitename        # internet sitename
 
 # string="11112_test"
 delimiter="_"
 retval=""
+tplpublicsitename=""
 Global_Projectname="ll"
 basedir=$(pwd) # not used
 dockerdir="docker"
@@ -52,16 +54,15 @@ unset tplsourceindexdir    # source index.* directory
 # templates variable for docker-compose
 ##################################################################
 
-
-
-
+echo "##############################################################"
+echo "# version 1.02  dev - ok,qa - ok, prod - ok                  #"
+echo "##############################################################"
 
 
 ##################################################################
 # starting
 ##################################################################
 # echo $JOB_BASE_NAME
-echo "Version 0.1a"
 
 if [[ -z "$JOB_BASE_NAME" ]];   then
       JOB_BASE_NAME="9999_mysite"
@@ -118,12 +119,12 @@ DevEnvironment(){
    echo "Enviroment is $1 "
    echo "Second parameter is $2 "
      username=jenkinsuser
-     password=Password
+     password=Passw0rd
      sourceservername=reg.srv.local
      targetservername=reg.srv.local
      projectname=$Global_Projectname
 #     sitename=$JOB_BASE_NAME
-     sourcecontainerlocation="reg.srv.local/main"
+     sourcecontainerlocation="reg.srv.local/code"
      targetcontainerlocation=$string
      swarmmanager=jenkins.srv.local
      buildenv=dev
@@ -135,12 +136,13 @@ QaEnvironment(){
    echo "Enviroment is $1 "
    echo "Second parameter is $2 "
    username=jenkinsuser
-   password=P@ssw0rd
+   password=Passw0rd
+   remoteuser=robot
    sourceservername=reg.srv.local
    targetservername=regbackup.srv.local
    projectname=$Global_Projectname
 #   sitename=$JOB_BASE_NAME
-   sourcecontainerlocation="reg.srv.local/main"
+   sourcecontainerlocation="reg.srv.local/codinsula"
    targetcontainerlocation=$string
    swarmmanager=swarmqa0.srv.local
    buildenv=qa
@@ -153,14 +155,16 @@ ProdEnvironment(){
    echo "Second parameter is $2 "
    username=jenkinsuser
    password=P@ssw0rd
+   remoteuser=robot
    sourceservername=regbackup.srv.local
    targetservername=regprod.srv.local
    projectname=$Global_Projectname
 #   sitename=$JOB_BASE_NAME
-   sourcecontainerlocation="reg.srv.local/main"
+   sourcecontainerlocation="regbackup.srv.local/code"
    targetcontainerlocation=$string
    swarmmanager=prodnode0.srv.local
    buildenv=prod
+   tplpublicsitename=${publicsitename,,}
    job=copy
 }
 
@@ -250,6 +254,7 @@ echo " Assigned variables: "
 
 echo "Username for servers          :"$username
 echo "Password for server           :"$password
+echo "User on remote server (docker):"$remoteuser
 echo "Sources server name           :"$sourceservername
 echo "Target server name            :"$targetservername
 echo "Project name                  :"$projectname
@@ -262,6 +267,7 @@ echo "Swarm manager                 :"$swarmmanager
 echo "Build enviroment (dev|qa|prod):"$buildenv
 echo "Current job                   :"$job
 echo "Current directory             :"$basedir
+echo "Internet site name            :"$tplpublicsitename
 echo "Docker directory              :"$dockerdir
 
 echo " "
@@ -351,7 +357,7 @@ if [ "$job" == "build" ]; then
 
 
 echo "Stoping stack :"${sitename}
-docker stack rm "${sitename}"
+# docker stack rm "${sitename}"
 #  echo "Clean up docker .... ."
 #  docker system prune -a -f
 
@@ -381,7 +387,7 @@ docker stack rm "${sitename}"
 #       bash ./$dockerdir/scripts/build.sh ./$dockerdir/${buildfolders[$i-1]}/ create default.conf
      done
      echo "Make changes in docker-compose.yml depending on project settings"
-     bash ./${dockerdir}/scripts/build.sh "./${dockerdir}/./" "use" "docker-compose.yml" "replace" "- 99999:80" "- ${portnumber}:80"
+     bash ./${dockerdir}/scripts/build.sh "./${dockerdir}/./" "use" "docker-compose.yml" "replace" "- 99999:1180" "- ${portnumber}:1180"
 # tpl_BUILD_ENV
      bash ./${dockerdir}/scripts/build.sh "./${dockerdir}/./" "use" "docker-compose.yml" "replace" "tpl_BUILD_ENV" "dev"
      echo "create and start docker stack"
@@ -454,9 +460,11 @@ if [ "$job" == "copy" ]; then
      #       bash ./$dockerdir/scripts/build.sh ./$dockerdir/${buildfolders[$i-1]}/ create default.conf
           done
           echo "Make changes in docker-compose.yml depending on project settings"
-          bash ./${dockerdir}/scripts/build.sh "./${dockerdir}/./" "use" "docker-compose.yml" "replace" "- 99999:80" "- ${portnumber}:80"
+          bash ./${dockerdir}/scripts/build.sh "./${dockerdir}/./" "use" "docker-compose.yml" "replace" "- 99999:1180" "- ${portnumber}:1180"
           # tpl_BUILD_ENV >> qa
           bash ./${dockerdir}/scripts/build.sh "./${dockerdir}/./" "use" "docker-compose.yml" "replace" "tpl_BUILD_ENV" "qa"
+          bash ./${dockerdir}/scripts/build.sh "./${dockerdir}/" "rdeploy" "docker-compose.yml" "${projectname}" "${sitename}" "${remoteuser}" "${swarmmanager}"
+
 #          bash ./${dockerdir}/scripts/build.sh "./${dockerdir}/./" "copy" "$sourceservername" "$targetservername" "$projectname" "$sitename"
 
 
@@ -464,6 +472,106 @@ if [ "$job" == "copy" ]; then
         ;;
      prod)
         echo "Prepering Prod environment "
+
+        step_1=("." "create" "docker-compose.yml" $endofsitename)
+        step_2=("." "use" "docker-compose.yml" "replace" "- tplphp" " - phpsrv1")
+        step_3=("." "use" "docker-compose.yml" "replace" "tplphp:" "phpsrv1:")
+        step_4=("." "use" "docker-compose.yml" "replace" "tplweb:" "websrv:")
+        step_5=("." "use" "docker-compose.yml" "replace" "replicas: 1" "replicas: 1")
+        step_6=("." "use" "docker-compose.yml" "replace" "tplwebsrv" "websrv")
+        step_7=("." "use" "docker-compose.yml" "replace" "tplphpsrv" "phpsrv")
+
+        # sources for containers
+
+        step_8=("." "use" "docker-compose.yml" "replace" "tpl_targetsrv" ${targetservername,,})
+        step_9=("." "use" "docker-compose.yml" "replace" "tpl_projectname" ${projectname,,})
+        step_10=("." "use" "docker-compose.yml" "replace" "tplsitename" ${sitename,,})
+
+        step_11=("." "use" "docker-compose.yml" "replace" "#labels:" "labels:")
+        step_12=("." "use" "docker-compose.yml" "replace" '#- "traefik.backend.loadbalancer.sticky=false"' '- "traefik.backend.loadbalancer.sticky=false"')
+        step_13=("." "use" "docker-compose.yml" "replace" '#- "traefik.backend.loadbalancer.swarm=true"' '- "traefik.backend.loadbalancer.swarm=true"')
+        step_14=("." "use" "docker-compose.yml" "replace" '#- "traefik.backend=tplbackendsitename"' '- "traefik.backend=tplbackendsitename"')
+        step_15=("." "use" "docker-compose.yml" "replace" '#- "traefik.docker.network=traefiknet"' '- "traefik.docker.network=traefiknet"')
+        step_16=("." "use" "docker-compose.yml" "replace" '#- "traefik.entrypoints=https"' '- "traefik.entrypoints=https"')
+        step_17=("." "use" "docker-compose.yml" "replace" '#- "traefik.frontend.passHostHeader=true"' '- "traefik.frontend.passHostHeader=true"')
+        step_18=("." "use" "docker-compose.yml" "replace" '#- "traefik.frontend.rule=Host:tplpublicsitename"' '- "traefik.frontend.rule=Host:tplpublicsitename"')
+        step_19=("." "use" "docker-compose.yml" "replace" '#- "traefik.port=99999"' '- "traefik.port=tmp99999"')
+        step_20=("." "use" "docker-compose.yml" "replace" '#      - traefiknet' '      - traefiknet')
+        step_21=("." "use" "docker-compose.yml" "replace" '#  traefiknet:' '  traefiknet:')
+        step_22=("." "use" "docker-compose.yml" "replace" '#    external: true' '    external: true')
+        step_23=("." "use" "docker-compose.yml" "replace" 'tplbackendsitename' ${sitename,,})
+        step_24=("." "use" "docker-compose.yml" "replace" 'tplpublicsitename' ${tplpublicsitename,,})
+#        step_25=("." "use" "docker-compose.yml" "replace" 'tmp99999' ${portnumber})
+        step_25=("." "use" "docker-compose.yml" "replace" 'tmp99999' '1180')
+
+        step_26=("websrv" "copy" ${sourceservername,,} ${targetservername,,} ${projectname,,} "${sitename,,}")
+        step_27=("phpsrv" "copy" ${sourceservername,,} ${targetservername,,} ${projectname,,} "${sitename,,}")
+
+        declare -a buildfolders=(
+          step_1[@]
+          step_2[@]
+          step_3[@]
+          step_4[@]
+          step_5[@]
+          step_6[@]
+          step_7[@]
+          step_8[@]
+          step_9[@]
+          step_10[@]
+          step_11[@]
+          step_12[@]
+          step_13[@]
+          step_14[@]
+          step_15[@]
+          step_16[@]
+          step_17[@]
+          step_18[@]
+          step_19[@]
+          step_20[@]
+          step_21[@]
+          step_22[@]
+          step_23[@]
+          step_24[@]
+          step_25[@]
+          step_26[@]
+          step_27[@]
+          )
+
+        echo "Let's manipulate with container(s) for project $projectname "
+
+         arrayleght=${#buildfolders[@]}
+          for (( i=1; i<${arrayleght}+1; i++ ));
+          do
+            folder="${!buildfolders[$i-1]:0:1}"
+            file_task="${!buildfolders[$i-1]:1:1}"
+            file="${!buildfolders[$i-1]:2:1}"
+            task="${!buildfolders[$i-1]:3:1}"
+            variable_name="${!buildfolders[$i-1]:4:1}"
+            variable_value="${!buildfolders[$i-1]:5:1}"
+#            echo "Folder" ${folder}    " leght "${#folder}
+#            echo "Task ${file_task}"  " leght "${#file_task}
+#            echo "File ${file}"  " leght "${#file}
+#            echo "Task for file ${task}"  " leght "${#task}
+#            echo "Variable name ${variable_name}"   " leght "${#variable_name}
+#            echo "Variable value ${variable_value}"  " leght "${#variable_value}
+#            echo " "
+            bash  ./${dockerdir}/scripts/build.sh ./${dockerdir}/${folder}/ ${file_task} ${file} ${task} "${variable_name}" "${variable_value}" ${folder}
+
+     #       echo "$i"
+     #       echo ${buildfolders[$i-1]}
+     #       ls -lh ./$dockerdir/${buildfolders[$i-1]}
+     #       pwd
+     #       bash ./$dockerdir/scripts/build.sh ./$dockerdir/${buildfolders[$i-1]}/ create default.conf
+          done
+          echo "Make changes in docker-compose.yml depending on project settings"
+          bash ./${dockerdir}/scripts/build.sh "./${dockerdir}/./" "use" "docker-compose.yml" "replace" "- 99999:1180" "- ${portnumber}:1180"
+          # tpl_BUILD_ENV >> qa
+          bash ./${dockerdir}/scripts/build.sh "./${dockerdir}/./" "use" "docker-compose.yml" "replace" "tpl_BUILD_ENV" "prod"
+          bash ./${dockerdir}/scripts/build.sh "./${dockerdir}/" "rdeploy" "docker-compose.yml" "${projectname}" "${sitename}" "${remoteuser}" "${swarmmanager}"
+
+#          bash ./${dockerdir}/scripts/build.sh "./${dockerdir}/./" "copy" "$sourceservername" "$targetservername" "$projectname" "$sitename"
+
+
         ;;
      *)
         echo "`basename ${0}`:usage: dev|qa|prod"
@@ -471,7 +579,6 @@ if [ "$job" == "copy" ]; then
         ;;
   esac
 fi
-
 
 
 
