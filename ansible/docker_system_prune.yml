@@ -1,0 +1,22 @@
+---
+- name: Test connection to Unix servers
+  hosts: dockers
+  become: yes
+
+  tasks:
+
+  - name: Ping unixs
+    ping:
+
+
+  - name: Prune everything
+    shell: docker system prune -a -f
+    register: docker_resault
+    args:
+      executable: /bin/bash
+
+  - debug:
+      msg: "Docker resault is : {{docker_resault.stdout_lines}}"
+
+# cron job:
+# ansible-playbook /etc/ansible/playbooks/unix/dockers/docker_system_prune.yml
